@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🍅 방울토마토 관찰일지</title>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+    background: #f5f9f0;
+    color: #1a2e0e;
+    min-height: 100vh;
+  }
+
+  /* ── 헤더 ── */
+  .header {
+    background: #2d5a1b;
+    color: #fff;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  .header h1 { font-size: 20px; font-weight: 700; }
+  .header .badge {
+    margin-left: auto;
+    background: #ff6b35;
+    color: #fff;
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 14px;
+    font-weight: 700;
+    display: none;
+  }
+
+  /* ── 화면 전환 ── */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* ── 번호 선택 화면 ── */
+  #screen-select {
+    padding: 24px 20px;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  #screen-select h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #2d5a1b;
+    margin-bottom: 6px;
+    text-align: center;
+  }
+  #screen-select p {
+    text-align: center;
+    color: #5a7a4a;
+    font-size: 15px;
+    margin-bottom: 24px;
+  }
+  .number-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 10px;
+  }
+  .num-btn {
+    aspect-ratio: 1;
+    border-radius: 16px;
+    border: 3px solid #c8e6b0;
+    background: #fff;
+    font-size: 20px;
+    font-weight: 700;
+    color: #2d5a1b;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .num-btn:hover { background: #e8f5e0; border-color: #5aaa2a; transform: scale(1.05); }
+  .num-btn:active { transform: scale(0.97); }
+  .num-btn.has-data::after {
+    content: '🍅';
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    font-size: 14px;
+  }
+
+  /* ── 메인 관찰 화면 ── */
+  #screen-main { padding: 0; }
+
+  .student-bar {
+    background: #3b7a20;
+    color: #fff;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .student-bar .num-tag {
+    background: #ff6b35;
+    border-radius: 50%;
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .student-bar .name-area { flex: 1; }
+  .student-bar .name-area input {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    border-bottom: 2px solid rgba(255,255,255,0.5);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    width: 120px;
+    outline: none;
+    padding: 2px 4px;
+    border-radius: 0;
+  }
+  .student-bar .name-area input::placeholder { color: rgba(255,255,255,0.6); }
+  .student-bar .back-btn {
+    background: rgba(255,255,255,0.2);
+    border: 2px solid rgba(255,255,255,0.5);
+    color: #fff;
+    border-radius: 10px;
+    padding: 6px 14px;
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+
+  /* ── 날짜 탭 ── */
+  .date-tab-bar {
+    background: #fff;
+    border-bottom: 2px solid #d4ecc0;
+    padding: 0 12px;
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .date-tab-bar::-webkit-scrollbar { display: none; }
+  .date-tab {
+    flex-shrink: 0;
+    padding: 10px 14px;
+    border: none;
+    background: none;
+    font-size: 14px;
+    color: #7a9a6a;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .date-tab.active { color: #2d5a1b; border-bottom-color: #5aaa2a; }
+  .date-tab.has-data { color: #3b7a20; }
+  .add-date-btn {
+    flex-shrink: 0;
+    padding: 10px 14px;
+    border: none;
+    background: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #5aaa2a;
+  }
+
+  /* ── 관찰 폼 ── */
+  .obs-form {
+    padding: 16px 20px;
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  .section-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #2d5a1b;
+    margin: 18px 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* 날씨/기분 */
+  .emoji-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .emoji-pick {
+    flex: 1;
+    min-width: 60px;
+    max-width: 90px;
+    aspect-ratio: 1;
+    border-radius: 16px;
+    border: 3px solid #d4ecc0;
+    background: #fff;
+    font-size: 28px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+  }
+  .emoji-pick span { font-size: 10px; color: #7a9a6a; font-weight: 600; }
+  .emoji-pick.selected { border-color: #5aaa2a; background: #e8f5e0; transform: scale(1.08); }
+
+  /* 수치 기록 */
+  .measure-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .measure-card {
+    background: #fff;
+    border-radius: 16px;
+    border: 2px solid #d4ecc0;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .measure-card .icon { font-size: 26px; }
+  .measure-card label { font-size: 13px; font-weight: 700; color: #3b7a20; }
+  .measure-card input {
+    width: 100%;
+    text-align: center;
+    font-size: 24px;
+    font-weight: 700;
+    color: #2d5a1b;
+    border: none;
+    border-bottom: 2px solid #d4ecc0;
+    background: none;
+    outline: none;
+    padding: 4px 0;
+  }
+  .measure-card .unit { font-size: 12px; color: #7a9a6a; }
+
+  /* 그림판 */
+  .canvas-wrap {
+    background: #fff;
+    border-radius: 16px;
+    border: 2px solid #d4ecc0;
+    overflow: hidden;
+  }
+  .canvas-toolbar {
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px;
+    background: #f0f8e8;
+    border-bottom: 1px solid #d4ecc0;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .color-dot {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 3px solid transparent;
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  .color-dot.active { border-color: #333; transform: scale(1.2); }
+  .brush-btn {
+    padding: 4px 10px;
+    border-radius: 8px;
+    border: 2px solid #c8e6b0;
+    background: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    color: #2d5a1b;
+  }
+  .brush-btn.active { background: #2d5a1b; color: #fff; border-color: #2d5a1b; }
+  canvas#drawCanvas {
+    display: block;
+    width: 100%;
+    cursor: crosshair;
+    touch-action: none;
+  }
+
+  /* 텍스트 입력 */
+  .obs-textarea {
+    width: 100%;
+    border: 2px solid #d4ecc0;
+    border-radius: 16px;
+    padding: 14px;
+    font-size: 16px;
+    color: #1a2e0e;
+    background: #fff;
+    resize: none;
+    font-family: inherit;
+    line-height: 1.6;
+    outline: none;
+    min-height: 90px;
+  }
+  .obs-textarea:focus { border-color: #5aaa2a; }
+
+  /* 저장 버튼 */
+  .save-btn {
+    width: 100%;
+    padding: 18px;
+    background: #ff6b35;
+    color: #fff;
+    border: none;
+    border-radius: 20px;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: background 0.15s;
+  }
+  .save-btn:active { background: #e05520; }
+
+  /* ── 발표 화면 ── */
+  #screen-present {
+    padding: 20px;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+  #screen-present h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #2d5a1b;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  .present-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+  }
+  .present-card {
+    background: #fff;
+    border-radius: 16px;
+    border: 2px solid #d4ecc0;
+    padding: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .present-card:hover { border-color: #5aaa2a; transform: translateY(-2px); }
+  .present-card .pc-num {
+    font-size: 28px;
+    font-weight: 700;
+    color: #2d5a1b;
+    text-align: center;
+  }
+  .present-card .pc-name {
+    font-size: 13px;
+    color: #5a7a4a;
+    text-align: center;
+    margin-top: 2px;
+  }
+  .present-card .pc-count {
+    font-size: 12px;
+    color: #ff6b35;
+    text-align: center;
+    font-weight: 700;
+    margin-top: 6px;
+  }
+  .present-card.empty { opacity: 0.4; }
+
+  /* 발표 상세 모달 */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 200;
+    padding: 20px;
+    overflow-y: auto;
+  }
+  .modal-overlay.open { display: flex; align-items: flex-start; justify-content: center; }
+  .modal-box {
+    background: #fff;
+    border-radius: 20px;
+    width: 100%;
+    max-width: 560px;
+    padding: 24px;
+    margin: auto;
+  }
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .modal-header h3 { font-size: 20px; font-weight: 700; color: #2d5a1b; }
+  .modal-close {
+    background: #f0f0f0;
+    border: none;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+    cursor: pointer;
+  }
+
+  /* ── 하단 탭 ── */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border-top: 2px solid #d4ecc0;
+    display: flex;
+    z-index: 99;
+  }
+  .bnav-btn {
+    flex: 1;
+    padding: 12px 4px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #7a9a6a;
+    transition: color 0.15s;
+  }
+  .bnav-btn.active { color: #2d5a1b; }
+  .bnav-btn .bnav-icon { font-size: 22px; }
+
+  .page-pad { padding-bottom: 80px; }
+
+  /* 토스트 */
+  .toast {
+    position: fixed;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: #2d5a1b;
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 30px;
+    font-size: 15px;
+    font-weight: 700;
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 300;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* 성장 그래프 */
+  .growth-section { margin-top: 20px; }
+  .growth-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .growth-label { font-size: 13px; font-weight: 700; color: #5a7a4a; width: 70px; flex-shrink: 0; }
+  .growth-bar-wrap { flex: 1; background: #f0f8e8; border-radius: 8px; height: 28px; overflow: hidden; }
+  .growth-bar { height: 100%; background: #5aaa2a; border-radius: 8px; display: flex; align-items: center; padding-left: 8px; color: #fff; font-size: 13px; font-weight: 700; min-width: 32px; transition: width 0.5s; }
+
+  @media (max-width: 400px) {
+    .number-grid { grid-template-columns: repeat(5, 1fr); }
+    .measure-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 헤더 -->
+<div class="header">
+  <span style="font-size:28px">🍅</span>
+  <h1>방울토마토 관찰일지</h1>
+  <div class="badge" id="onlineBadge">● 연결됨</div>
+</div>
+
+<!-- ① 번호 선택 화면 -->
+<div id="screen-select" class="screen active">
+  <h2>내 번호를 골라요!</h2>
+  <p>🍅 자기 번호를 누르면 관찰일지가 열려요</p>
+  <div class="number-grid" id="numberGrid"></div>
+</div>
+
+<!-- ② 메인 관찰 화면 -->
+<div id="screen-main" class="screen page-pad">
+  <div class="student-bar">
+    <div class="num-tag" id="dispNum">1</div>
+    <div class="name-area">
+      <div style="font-size:11px;color:rgba(255,255,255,0.7);margin-bottom:2px">내 이름</div>
+      <input type="text" id="studentName" placeholder="이름 입력" maxlength="6">
+    </div>
+    <button class="back-btn" onclick="goBack()">← 번호 선택</button>
+  </div>
+
+  <!-- 날짜 탭 -->
+  <div class="date-tab-bar" id="dateTabBar">
+    <button class="add-date-btn" onclick="addDateTab()" title="새 날짜 추가">＋</button>
+  </div>
+
+  <div class="obs-form" id="obsForm">
+    <div style="text-align:center;padding:40px 20px;color:#7a9a6a">
+      <div style="font-size:48px;margin-bottom:12px">📅</div>
+      <div style="font-size:16px;font-weight:700">위쪽 ＋ 버튼으로 오늘 날짜를 추가하세요!</div>
+    </div>
+  </div>
+</div>
+
+<!-- ③ 발표 화면 -->
+<div id="screen-present" class="screen page-pad">
+  <h2>📊 반 전체 관찰 현황</h2>
+  <div class="present-grid" id="presentGrid"></div>
+</div>
+
+<!-- 발표 모달 -->
+<div class="modal-overlay" id="modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="modalTitle">관찰일지</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<!-- 하단 탭 -->
+<div class="bottom-nav" id="bottomNav" style="display:none">
+  <button class="bnav-btn active" id="tab-record" onclick="switchTab('record')">
+    <span class="bnav-icon">📝</span>내 관찰
+  </button>
+  <button class="bnav-btn" id="tab-present" onclick="switchTab('present')">
+    <span class="bnav-icon">📊</span>반 전체 보기
+  </button>
+</div>
+
+<!-- 토스트 -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Firebase 설정 (기존 msja-3-3 프로젝트 사용) ──
+const firebaseConfig = {
+  apiKey: "AIzaSyAIdpQUtdgDMTaJBWAd0bZPc3KbM2owaw4",
+  authDomain: "msja-3-3.firebaseapp.com",
+  databaseURL: "https://msja-3-3-default-rtdb.firebaseio.com",
+  projectId: "msja-3-3",
+  storageBucket: "msja-3-3.firebasestorage.app",
+  messagingSenderId: "399225655763",
+  appId: "1:399225655763:web:c783845a53f8f98395df26",
+  measurementId: "G-H337ZH5X6K"
+};
+
+try {
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+  document.getElementById('onlineBadge').style.display = 'block';
+  window.db = db;
+} catch(e) {
+  window.db = null;
+  console.warn('Firebase 연결 없이 로컬 모드로 실행합니다.');
+}
+
+// ── 상태 ──
+let currentStudent = null;   // {num, name}
+let currentDate = null;       // 'YYYY-MM-DD'
+let allData = {};             // 로컬 캐시
+let drawing = false;
+let ctx = null;
+let currentColor = '#2d5a1b';
+let currentBrush = 6;
+
+// ── 번호 그리드 생성 ──
+function buildNumberGrid() {
+  const grid = document.getElementById('numberGrid');
+  grid.innerHTML = '';
+  for (let i = 1; i <= 21; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'num-btn';
+    btn.textContent = i;
+    btn.id = 'nb-' + i;
+    btn.onclick = () => selectStudent(i);
+    grid.appendChild(btn);
+  }
+}
+
+// Firebase에서 데이터 가져와 번호 뱃지 업데이트
+function listenAll() {
+  if (!window.db) return;
+  db.ref('tomato_journal').on('value', snap => {
+    allData = snap.val() || {};
+    updateNumberBadges();
+    if (currentStudent) updatePresentGrid();
+  });
+}
+
+function updateNumberBadges() {
+  for (let i = 1; i <= 21; i++) {
+    const btn = document.getElementById('nb-' + i);
+    if (!btn) continue;
+    const key = 'student_' + i;
+    if (allData[key] && Object.keys(allData[key].dates || {}).length > 0) {
+      btn.classList.add('has-data');
+    } else {
+      btn.classList.remove('has-data');
+    }
+  }
+}
+
+// ── 학생 선택 ──
+function selectStudent(num) {
+  currentStudent = { num };
+  document.getElementById('dispNum').textContent = num;
+  document.getElementById('screen-select').classList.remove('active');
+  document.getElementById('screen-main').classList.add('active');
+  document.getElementById('bottomNav').style.display = 'flex';
+
+  const saved = (allData['student_' + num] || {});
+  document.getElementById('studentName').value = saved.name || '';
+
+  buildDateTabs(saved.dates || {});
+  switchTab('record');
+}
+
+function goBack() {
+  currentStudent = null;
+  currentDate = null;
+  document.getElementById('screen-main').classList.remove('active');
+  document.getElementById('screen-present').classList.remove('active');
+  document.getElementById('screen-select').classList.add('active');
+  document.getElementById('bottomNav').style.display = 'none';
+  document.querySelectorAll('.bnav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-record').classList.add('active');
+}
+
+// ── 탭 전환 ──
+function switchTab(tab) {
+  document.getElementById('screen-main').classList.remove('active');
+  document.getElementById('screen-present').classList.remove('active');
+  document.querySelectorAll('.bnav-btn').forEach(b => b.classList.remove('active'));
+
+  if (tab === 'record') {
+    document.getElementById('screen-main').classList.add('active');
+    document.getElementById('tab-record').classList.add('active');
+  } else {
+    document.getElementById('screen-present').classList.add('active');
+    document.getElementById('tab-present').classList.add('active');
+    updatePresentGrid();
+  }
+}
+
+// ── 날짜 탭 ──
+function buildDateTabs(dates) {
+  const bar = document.getElementById('dateTabBar');
+  bar.innerHTML = '<button class="add-date-btn" onclick="addDateTab()">＋</button>';
+
+  const keys = Object.keys(dates || {}).sort();
+  keys.forEach(d => {
+    addTabEl(d, (dates[d] && Object.keys(dates[d]).length > 0));
+  });
+
+  if (keys.length > 0) {
+    selectDate(keys[keys.length - 1]);
+  } else {
+    document.getElementById('obsForm').innerHTML = `
+      <div style="text-align:center;padding:40px 20px;color:#7a9a6a">
+        <div style="font-size:48px;margin-bottom:12px">📅</div>
+        <div style="font-size:16px;font-weight:700">위쪽 ＋ 버튼으로 오늘 날짜를 추가하세요!</div>
+      </div>`;
+  }
+}
+
+function addTabEl(dateStr, hasData) {
+  const bar = document.getElementById('dateTabBar');
+  const addBtn = bar.querySelector('.add-date-btn');
+  const tab = document.createElement('button');
+  tab.className = 'date-tab' + (hasData ? ' has-data' : '');
+  tab.id = 'dtab-' + dateStr;
+  tab.textContent = formatDateShort(dateStr);
+  tab.onclick = () => selectDate(dateStr);
+  bar.insertBefore(tab, addBtn);
+}
+
+function addDateTab() {
+  const today = getTodayStr();
+  if (document.getElementById('dtab-' + today)) {
+    selectDate(today);
+    return;
+  }
+  addTabEl(today, false);
+  selectDate(today);
+}
+
+function selectDate(dateStr) {
+  currentDate = dateStr;
+  document.querySelectorAll('.date-tab').forEach(t => t.classList.remove('active'));
+  const tab = document.getElementById('dtab-' + dateStr);
+  if (tab) { tab.classList.add('active'); tab.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }); }
+
+  const key = 'student_' + currentStudent.num;
+  const saved = ((allData[key] || {}).dates || {})[dateStr] || {};
+  renderObsForm(dateStr, saved);
+}
+
+// ── 관찰 폼 렌더링 ──
+function renderObsForm(dateStr, saved) {
+  const form = document.getElementById('obsForm');
+  form.innerHTML = `
+    <div class="section-title">☀️ 오늘 날씨</div>
+    <div class="emoji-row" id="weatherRow">
+      ${['☀️ 맑음','⛅ 흐림','🌧️ 비','❄️ 눈'].map(w=>`
+        <button class="emoji-pick${saved.weather===w?' selected':''}" onclick="pick('weather','${w}',this)">
+          ${w.split(' ')[0]}<span>${w.split(' ')[1]}</span>
+        </button>`).join('')}
+    </div>
+
+    <div class="section-title">😊 오늘 기분</div>
+    <div class="emoji-row" id="moodRow">
+      ${['😊 좋아요','😲 신기해요','😢 걱정돼요','😡 힘들어요'].map(m=>`
+        <button class="emoji-pick${saved.mood===m?' selected':''}" onclick="pick('mood','${m}',this)">
+          ${m.split(' ')[0]}<span>${m.split(' ')[1]}</span>
+        </button>`).join('')}
+    </div>
+
+    <div class="section-title">📏 오늘 측정 (모르면 비워도 돼요)</div>
+    <div class="measure-grid">
+      <div class="measure-card">
+        <span class="icon">📐</span>
+        <label>키</label>
+        <input type="number" id="m-height" value="${saved.height||''}" placeholder="0" min="0" max="300">
+        <span class="unit">cm</span>
+      </div>
+      <div class="measure-card">
+        <span class="icon">🍃</span>
+        <label>잎 수</label>
+        <input type="number" id="m-leaves" value="${saved.leaves||''}" placeholder="0" min="0">
+        <span class="unit">장</span>
+      </div>
+      <div class="measure-card">
+        <span class="icon">🌸</span>
+        <label>꽃 수</label>
+        <input type="number" id="m-flowers" value="${saved.flowers||''}" placeholder="0" min="0">
+        <span class="unit">개</span>
+      </div>
+      <div class="measure-card">
+        <span class="icon">🍅</span>
+        <label>열매 수</label>
+        <input type="number" id="m-fruits" value="${saved.fruits||''}" placeholder="0" min="0">
+        <span class="unit">개</span>
+      </div>
+    </div>
+
+    <div class="section-title">🎨 오늘 내 토마토 그림</div>
+    <div class="canvas-wrap">
+      <div class="canvas-toolbar">
+        ${['#2d5a1b','#5aaa2a','#ff6b35','#e8b84b','#e84b4b','#4b7be8','#333333','#ffffff'].map(c=>`
+          <div class="color-dot${currentColor===c?' active':''}" style="background:${c};border:3px solid ${currentColor===c?'#333':'#d4ecc0'}" onclick="setColor('${c}',this)"></div>`).join('')}
+        <div style="margin-left:auto;display:flex;gap:6px">
+          <button class="brush-btn${currentBrush===4?' active':''}" onclick="setBrush(4,this)">가늘게</button>
+          <button class="brush-btn${currentBrush===8?' active':''}" onclick="setBrush(8,this)">보통</button>
+          <button class="brush-btn${currentBrush===16?' active':''}" onclick="setBrush(16,this)">굵게</button>
+          <button class="brush-btn" onclick="clearCanvas()" style="color:#e84b4b">지우기</button>
+        </div>
+      </div>
+      <canvas id="drawCanvas" width="660" height="260"></canvas>
+    </div>
+
+    <div class="section-title">👀 오늘 관찰한 것 (보이는 것을 써요)</div>
+    <textarea class="obs-textarea" id="obsText" placeholder="오늘 토마토를 보니까..." rows="3">${saved.obsText||''}</textarea>
+
+    <div class="section-title">❓ 궁금한 점</div>
+    <textarea class="obs-textarea" id="questionText" placeholder="왜 그럴까? 어떻게 될까?" rows="2">${saved.questionText||''}</textarea>
+
+    <button class="save-btn" onclick="saveObs()">💾 저장하기</button>
+    <div style="height:20px"></div>
+  `;
+
+  initCanvas(saved.drawing || null);
+}
+
+// ── 선택 토글 ──
+let picks = {};
+function pick(type, val, el) {
+  picks[type] = val;
+  el.closest('.emoji-row').querySelectorAll('.emoji-pick').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+// ── 그림판 ──
+function initCanvas(savedData) {
+  const canvas = document.getElementById('drawCanvas');
+  if (!canvas) return;
+  ctx = canvas.getContext('2d');
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+
+  // 배경 흰색
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  if (savedData) {
+    const img = new Image();
+    img.onload = () => ctx.drawImage(img, 0, 0);
+    img.src = savedData;
+  }
+
+  // 기존 이벤트 제거 후 재등록
+  const c = canvas.cloneNode(true);
+  canvas.parentNode.replaceChild(c, canvas);
+  const nc = document.getElementById('drawCanvas');
+  const nctx = nc.getContext('2d');
+  nctx.lineJoin = 'round';
+  nctx.lineCap = 'round';
+  ctx = nctx;
+  if (savedData) {
+    const img2 = new Image();
+    img2.onload = () => ctx.drawImage(img2, 0, 0);
+    img2.src = savedData;
+  } else {
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, nc.width, nc.height);
+  }
+
+  function getPos(e) {
+    const r = nc.getBoundingClientRect();
+    const scaleX = nc.width / r.width;
+    const scaleY = nc.height / r.height;
+    if (e.touches) {
+      return { x: (e.touches[0].clientX - r.left) * scaleX, y: (e.touches[0].clientY - r.top) * scaleY };
+    }
+    return { x: (e.clientX - r.left) * scaleX, y: (e.clientY - r.top) * scaleY };
+  }
+
+  function startDraw(e) {
+    e.preventDefault();
+    drawing = true;
+    const p = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    ctx.strokeStyle = currentColor;
+    ctx.lineWidth = currentBrush;
+  }
+  function doDraw(e) {
+    if (!drawing) return;
+    e.preventDefault();
+    const p = getPos(e);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  }
+  function endDraw(e) { drawing = false; }
+
+  nc.addEventListener('mousedown', startDraw);
+  nc.addEventListener('mousemove', doDraw);
+  nc.addEventListener('mouseup', endDraw);
+  nc.addEventListener('mouseleave', endDraw);
+  nc.addEventListener('touchstart', startDraw, { passive: false });
+  nc.addEventListener('touchmove', doDraw, { passive: false });
+  nc.addEventListener('touchend', endDraw);
+}
+
+function setColor(c, el) {
+  currentColor = c;
+  document.querySelectorAll('.color-dot').forEach(d => {
+    d.classList.remove('active');
+    d.style.borderColor = '#d4ecc0';
+  });
+  el.classList.add('active');
+  el.style.borderColor = '#333';
+}
+
+function setBrush(size, el) {
+  currentBrush = size;
+  document.querySelectorAll('.brush-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function clearCanvas() {
+  if (!ctx) return;
+  const c = document.getElementById('drawCanvas');
+  ctx.clearRect(0, 0, c.width, c.height);
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, c.width, c.height);
+}
+
+// ── 그림 압축 (Firebase 용량 절약) ──
+function getCompressedDrawing() {
+  const canvas = document.getElementById('drawCanvas');
+  if (!canvas) return null;
+  const small = document.createElement('canvas');
+  small.width = 400;
+  small.height = 160;
+  const sctx = small.getContext('2d');
+  sctx.drawImage(canvas, 0, 0, 400, 160);
+  return small.toDataURL('image/jpeg', 0.6);
+}
+
+// ── 저장 ──
+function saveObs() {
+  if (!currentStudent || !currentDate) return;
+
+  const drawingData = getCompressedDrawing();
+
+  const obs = {
+    weather: picks.weather || '',
+    mood: picks.mood || '',
+    height: document.getElementById('m-height')?.value || '',
+    leaves: document.getElementById('m-leaves')?.value || '',
+    flowers: document.getElementById('m-flowers')?.value || '',
+    fruits: document.getElementById('m-fruits')?.value || '',
+    obsText: document.getElementById('obsText')?.value || '',
+    questionText: document.getElementById('questionText')?.value || '',
+    drawing: drawingData,
+    savedAt: new Date().toISOString()
+  };
+
+  const name = document.getElementById('studentName').value.trim();
+  const key = 'student_' + currentStudent.num;
+
+  // 로컬 캐시 먼저
+  if (!allData[key]) allData[key] = { dates: {} };
+  if (!allData[key].dates) allData[key].dates = {};
+  allData[key].name = name || (currentStudent.num + '번');
+  allData[key].dates[currentDate] = obs;
+
+  const tab = document.getElementById('dtab-' + currentDate);
+  if (tab) tab.classList.add('has-data');
+
+  if (window.db) {
+    showToast('💾 저장 중...');
+    db.ref('tomato_journal/' + key + '/name').set(name || (currentStudent.num + '번'));
+    db.ref('tomato_journal/' + key + '/num').set(currentStudent.num);
+    db.ref('tomato_journal/' + key + '/dates/' + currentDate).set(obs)
+      .then(() => { showToast('✅ 저장 완료!'); updateNumberBadges(); })
+      .catch(e => showToast('⚠️ 저장 실패: ' + (e.message || '다시 시도해요')));
+  } else {
+    showToast('✅ 저장됨 (오프라인)');
+  }
+  picks = {};
+}
+
+// ── 발표 화면 ──
+function updatePresentGrid() {
+  const grid = document.getElementById('presentGrid');
+  grid.innerHTML = '';
+  for (let i = 1; i <= 21; i++) {
+    const key = 'student_' + i;
+    const d = allData[key] || {};
+    const dates = d.dates || {};
+    const count = Object.keys(dates).length;
+    const card = document.createElement('div');
+    card.className = 'present-card' + (count === 0 ? ' empty' : '');
+    card.innerHTML = `
+      <div class="pc-num">${i}번</div>
+      <div class="pc-name">${d.name || '(이름 없음)'}</div>
+      <div class="pc-count">${count > 0 ? '🍅 ' + count + '회 기록' : '아직 없음'}</div>
+    `;
+    if (count > 0) card.onclick = () => openModal(i);
+    grid.appendChild(card);
+  }
+}
+
+function openModal(num) {
+  const key = 'student_' + num;
+  const d = allData[key] || {};
+  const dates = d.dates || {};
+  const sortedDates = Object.keys(dates).sort();
+
+  document.getElementById('modalTitle').textContent = num + '번 ' + (d.name || '') + '의 관찰일지';
+
+  let html = '';
+  sortedDates.forEach(dateStr => {
+    const obs = dates[dateStr];
+    html += `
+      <div style="border:2px solid #d4ecc0;border-radius:14px;padding:14px;margin-bottom:14px">
+        <div style="font-size:16px;font-weight:700;color:#2d5a1b;margin-bottom:10px">📅 ${formatDateFull(dateStr)}</div>
+        <div style="display:flex;gap:16px;margin-bottom:10px;font-size:18px">
+          <span title="날씨">${obs.weather||'-'}</span>
+          <span title="기분">${obs.mood ? obs.mood.split(' ')[0] : '-'}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
+          ${obs.height ? `<div style="text-align:center;background:#f0f8e8;border-radius:10px;padding:8px"><div style="font-size:11px;color:#5a7a4a">키</div><div style="font-weight:700;color:#2d5a1b">${obs.height}cm</div></div>` : ''}
+          ${obs.leaves ? `<div style="text-align:center;background:#f0f8e8;border-radius:10px;padding:8px"><div style="font-size:11px;color:#5a7a4a">잎</div><div style="font-weight:700;color:#2d5a1b">${obs.leaves}장</div></div>` : ''}
+          ${obs.flowers ? `<div style="text-align:center;background:#f0f8e8;border-radius:10px;padding:8px"><div style="font-size:11px;color:#5a7a4a">꽃</div><div style="font-weight:700;color:#2d5a1b">${obs.flowers}개</div></div>` : ''}
+          ${obs.fruits ? `<div style="text-align:center;background:#f0f8e8;border-radius:10px;padding:8px"><div style="font-size:11px;color:#5a7a4a">열매</div><div style="font-weight:700;color:#2d5a1b">${obs.fruits}개</div></div>` : ''}
+        </div>
+        ${obs.drawing ? `<img src="${obs.drawing}" style="width:100%;border-radius:10px;border:1px solid #d4ecc0;margin-bottom:8px">` : ''}
+        ${obs.obsText ? `<div style="font-size:14px;color:#1a2e0e;background:#f5f9f0;border-radius:10px;padding:10px;margin-bottom:6px">👀 ${obs.obsText}</div>` : ''}
+        ${obs.questionText ? `<div style="font-size:14px;color:#1a2e0e;background:#fff8e8;border-radius:10px;padding:10px">❓ ${obs.questionText}</div>` : ''}
+      </div>`;
+  });
+
+  // 성장 그래프 (키)
+  const heights = sortedDates.map(d => parseFloat(dates[d].height) || 0).filter(v => v > 0);
+  if (heights.length > 1) {
+    const maxH = Math.max(...heights);
+    html += `<div style="font-size:15px;font-weight:700;color:#2d5a1b;margin-bottom:10px">📈 키 성장 그래프</div>`;
+    sortedDates.forEach((d, i) => {
+      const h = parseFloat(dates[d].height) || 0;
+      if (!h) return;
+      const pct = Math.round((h / maxH) * 100);
+      html += `<div class="growth-row">
+        <div class="growth-label">${formatDateShort(d)}</div>
+        <div class="growth-bar-wrap"><div class="growth-bar" style="width:${pct}%">${h}cm</div></div>
+      </div>`;
+    });
+  }
+
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+}
+
+// ── 유틸 ──
+function getTodayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function formatDateShort(str) {
+  const [y, m, d] = str.split('-');
+  return m + '/' + d;
+}
+
+function formatDateFull(str) {
+  const [y, m, d] = str.split('-');
+  return y + '년 ' + parseInt(m) + '월 ' + parseInt(d) + '일';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── 초기화 ──
+buildNumberGrid();
+listenAll();
+</script>
+</body>
+</html>
