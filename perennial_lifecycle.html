@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>여러해살이 식물 탐구대장</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+  :root{
+    --moss:#2F5233;
+    --spring:#6FA85E;
+    --spring-light:#DCEEDB;
+    --bloom:#E8779A;
+    --bloom-light:#FCE3EC;
+    --sun:#F4B942;
+    --bark:#7A5230;
+    --cream:#FBF6EC;
+    --sky:#D7EAE4;
+    --ink:#2B2B24;
+    --white:#FFFFFF;
+    --shadow: 0 6px 0 rgba(43,43,36,0.12);
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;
+    font-family:'Noto Sans KR',sans-serif;
+    background:var(--cream);
+    color:var(--ink);
+    -webkit-tap-highlight-color:transparent;
+    overscroll-behavior:none;
+    touch-action:manipulation;
+  }
+  h1,h2,h3,.display{font-family:'Jua',sans-serif; font-weight:400;}
+  button{font-family:'Noto Sans KR',sans-serif; cursor:pointer;}
+  #app{min-height:100vh; display:flex; flex-direction:column;}
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 18px; background:var(--moss); color:var(--white);
+    position:sticky; top:0; z-index:50;
+  }
+  .topbar .brand{font-family:'Jua',sans-serif; font-size:20px; display:flex; align-items:center; gap:8px;}
+  .topbar .rightNav{display:flex; gap:8px;}
+  .navBtn{
+    background:rgba(255,255,255,0.15); color:var(--white); border:none;
+    padding:9px 14px; border-radius:14px; font-size:14px; font-weight:700;
+  }
+  .navBtn:active{background:rgba(255,255,255,0.3);}
+
+  /* ---------- Login screen ---------- */
+  .loginWrap{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:32px 20px; text-align:center;
+  }
+  .loginWrap .hero{font-size:56px; margin-bottom:6px;}
+  .loginWrap h1{font-size:30px; margin:0 0 6px;}
+  .loginWrap p{font-size:15px; color:#5b5b4e; margin:0 0 28px; max-width:420px;}
+  .groupGrid{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:16px; width:100%; max-width:440px;
+  }
+  .groupCard{
+    background:var(--white); border:3px solid var(--spring-light);
+    border-radius:20px; padding:18px 8px; box-shadow:var(--shadow);
+    font-size:17px; font-weight:700; color:var(--moss);
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+    transition:transform .08s;
+  }
+  .groupCard:active{transform:translateY(4px); box-shadow:none;}
+  .groupCard .num{font-family:'Jua',sans-serif; font-size:26px;}
+  .groupCard .plantTag{font-size:12px; color:var(--bark); font-weight:500;}
+
+  /* ---------- Stage wheel (signature element) ---------- */
+  .wheelWrap{
+    padding:16px 12px 6px; background:var(--sky);
+    border-bottom:3px solid var(--spring-light);
+  }
+  .wheelTrack{
+    display:flex; align-items:center; overflow-x:auto; gap:0; padding:4px 4px 10px;
+    scrollbar-width:none;
+  }
+  .wheelTrack::-webkit-scrollbar{display:none;}
+  .stageNode{
+    flex:0 0 auto; width:64px; display:flex; flex-direction:column; align-items:center; gap:4px;
+    position:relative;
+  }
+  .stageCircle{
+    width:46px; height:46px; border-radius:50%; background:var(--white);
+    border:3px solid var(--spring); display:flex; align-items:center; justify-content:center;
+    font-size:20px;
+  }
+  .stageNode.done .stageCircle{background:var(--spring); }
+  .stageNode.active .stageCircle{border-color:var(--bloom); box-shadow:0 0 0 4px var(--bloom-light);}
+  .stageLabel{font-size:10.5px; text-align:center; color:var(--ink); font-weight:700; line-height:1.2;}
+  .connector{flex:0 0 24px; height:3px; background:var(--spring); margin-top:-20px;}
+  .loopBack{
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    font-size:12px; color:var(--bark); font-weight:700; padding:2px 0 8px;
+  }
+  .loopBack .arrow{font-size:16px;}
+
+  /* ---------- Stage content ---------- */
+  .stageContent{flex:1; padding:18px; max-width:640px; margin:0 auto; width:100%;}
+  .plantBanner{
+    background:var(--white); border-radius:18px; padding:14px 16px; margin-bottom:16px;
+    display:flex; align-items:center; gap:12px; box-shadow:var(--shadow); border:2px solid var(--spring-light);
+  }
+  .plantBanner .emoji{font-size:34px;}
+  .plantBanner .name{font-size:18px; font-weight:900; color:var(--moss);}
+  .plantBanner .desc{font-size:12.5px; color:#6b6b5e; margin-top:2px;}
+
+  .stageTitle{font-size:22px; margin:6px 0 14px; color:var(--moss); display:flex; align-items:center; gap:8px;}
+  .qBlock{margin-bottom:18px;}
+  .qBlock label{display:block; font-size:14.5px; font-weight:700; margin-bottom:6px; color:var(--ink);}
+  .qBlock textarea{
+    width:100%; min-height:64px; border-radius:14px; border:2px solid var(--spring-light);
+    padding:10px 12px; font-size:15px; font-family:'Noto Sans KR',sans-serif; resize:vertical;
+    background:var(--white);
+  }
+  .qBlock textarea:focus{outline:none; border-color:var(--spring);}
+
+  .drawSection{margin-bottom:18px;}
+  .drawSection label{display:block; font-size:14.5px; font-weight:700; margin-bottom:6px;}
+  .canvasWrap{background:var(--white); border-radius:14px; border:2px solid var(--spring-light); padding:8px;}
+  canvas{width:100%; height:220px; border-radius:10px; background:#fff; touch-action:none; display:block;}
+  .drawTools{display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;}
+  .swatch{width:30px; height:30px; border-radius:50%; border:3px solid var(--white); box-shadow:0 0 0 1px #ddd;}
+  .toolBtn{
+    background:var(--spring-light); border:none; border-radius:10px; padding:6px 12px; font-size:13px; font-weight:700; color:var(--moss);
+  }
+
+  .stageFooterNav{display:flex; gap:10px; margin-top:8px; padding-bottom:24px;}
+  .bigBtn{
+    flex:1; padding:14px; border-radius:16px; border:none; font-size:16px; font-weight:900;
+    box-shadow:var(--shadow);
+  }
+  .bigBtn.primary{background:var(--spring); color:var(--white);}
+  .bigBtn.secondary{background:var(--white); color:var(--moss); border:2px solid var(--spring-light);}
+  .bigBtn:active{transform:translateY(4px); box-shadow:none;}
+
+  /* ---------- Summary card ---------- */
+  .summaryCard{background:var(--white); border-radius:20px; padding:18px; box-shadow:var(--shadow); border:3px solid var(--sun);}
+  .summaryCard h2{color:var(--bloom); font-size:24px; margin-top:0;}
+  .summaryStage{margin-bottom:14px; padding-bottom:12px; border-bottom:2px dashed var(--spring-light);}
+  .summaryStage h4{margin:0 0 6px; color:var(--moss); font-size:15px;}
+  .summaryStage p{margin:2px 0; font-size:13.5px; color:#444;}
+  .summaryStage img{width:100%; border-radius:10px; margin-top:6px;}
+
+  /* ---------- Presentation mode ---------- */
+  .presWrap{flex:1; display:flex; flex-direction:column; background:var(--moss); color:var(--white); padding:20px;}
+  .presHeader{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
+  .presCard{
+    flex:1; background:var(--white); color:var(--ink); border-radius:22px; padding:22px;
+    overflow-y:auto;
+  }
+  .presCard h2{color:var(--bloom); font-size:30px;}
+  .presNav{display:flex; gap:10px; margin-top:14px;}
+  .presNav button{flex:1; padding:16px; border-radius:16px; border:none; background:var(--sun); font-weight:900; font-size:16px;}
+
+  /* ---------- Teacher dashboard ---------- */
+  .teacherWrap{flex:1; padding:16px; max-width:760px; margin:0 auto; width:100%;}
+  table{width:100%; border-collapse:collapse; background:var(--white); border-radius:14px; overflow:hidden; box-shadow:var(--shadow);}
+  th,td{padding:9px 6px; text-align:center; font-size:13px; border-bottom:1px solid var(--spring-light);}
+  th{background:var(--spring-light); color:var(--moss);}
+  select{padding:6px; border-radius:8px; border:2px solid var(--spring-light); font-size:13px;}
+  .dot{width:12px; height:12px; border-radius:50%; display:inline-block;}
+  .dot.on{background:var(--spring);}
+  .dot.off{background:#e6e2d6;}
+  .resetBtn{background:var(--bloom); color:#fff; border:none; padding:6px 10px; border-radius:8px; font-size:12px; font-weight:700;}
+
+  .pinScreen{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:24px;}
+  .pinScreen input{font-size:22px; text-align:center; padding:10px; border-radius:12px; border:2px solid var(--spring-light); width:160px; letter-spacing:6px;}
+
+  .lockNote{font-size:12px; color:#8a8a7a; margin-top:10px; text-align:center;}
+  @media (min-width:700px){
+    .stageContent{padding:26px;}
+  }
+
+  /* ---------- 인쇄용 ---------- */
+  #printArea{display:none;}
+  .printSheet{
+    page-break-after:always;
+    padding:14mm;
+  }
+  .printSheet:last-child{page-break-after:auto;}
+  .printSheet h2{color:var(--moss); font-size:26px; margin:0 0 4px; font-family:'Jua',sans-serif;}
+  .printSheet .sub{font-size:13px; color:#555; margin-bottom:14px;}
+  .printSheet .summaryStage{border-bottom:1px solid #ccc;}
+  .printSheet .summaryStage img{max-height:260px; width:auto; display:block; margin:6px auto 0;}
+  .printSheet .summaryStage h4{color:var(--moss);}
+
+  @media print{
+    body *{ visibility:hidden; }
+    #printArea, #printArea *{ visibility:visible; }
+    #printArea{ display:block; position:absolute; left:0; top:0; width:100%; }
+    @page{ margin:12mm; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="printArea"></div>
+
+<script>
+/* =========================================================
+   설정 영역 (선생님이 수정하실 수 있는 부분)
+   ========================================================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyAIdpQUtdgDMTaJBWAd0bZPc3KbM2owaw4",
+  authDomain: "msja-3-3.firebaseapp.com",
+  databaseURL: "https://msja-3-3-default-rtdb.firebaseio.com",
+  projectId: "msja-3-3",
+  appId: "1:399225655763:web:c783845a53f8f98395df26"
+};
+const DB_ROOT = "perennialLifecycle2026"; // 이 활동 전용 저장 경로 (다른 활동 데이터와 겹치지 않음)
+const TEACHER_PIN = "1234"; // 교사 대시보드 접속 비밀번호 (원하시면 바꾸세요)
+const GROUP_COUNT = 6;
+
+const PLANTS = [
+  {id:"gaenari", name:"개나리", emoji:"🌼", desc:"이른 봄, 잎보다 먼저 노란 꽃을 피우는 우리나라 대표 여러해살이 나무예요."},
+  {id:"jindalrae", name:"진달래", emoji:"🌸", desc:"봄이 되면 산에 분홍빛 꽃을 가득 피우는 여러해살이 나무예요."},
+  {id:"gukhwa", name:"국화", emoji:"🌻", desc:"가을에 꽃이 피고, 겨울에는 땅속뿌리로 살아남는 여러해살이 풀이에요."},
+  {id:"namudalgi", name:"나무딸기", emoji:"🍓", desc:"여름에 빨간 열매가 열리는 여러해살이 나무예요."},
+  {id:"mugunghwa", name:"무궁화", emoji:"🌺", desc:"여름부터 가을까지 오랫동안 꽃이 피는 우리나라 나라꽃, 여러해살이 나무예요."},
+  {id:"mongryeon", name:"목련", emoji:"🌷", desc:"이른 봄 하얗고 커다란 꽃을 피우는 여러해살이 나무예요."}
+];
+
+const STAGES = [
+  { id:"s1", icon:"🔎", title:"우리 모둠 식물 소개",
+    questions:[
+      "우리 모둠이 조사할 식물의 이름은 무엇인가요?",
+      "이 식물은 학교, 산, 공원 중 어디에서 볼 수 있나요?",
+      "이 식물에 대해 더 알고 싶은 점을 적어보세요."
+    ], drawLabel:"식물의 전체 모습을 그려보세요" },
+  { id:"s2", icon:"❄️", title:"겨울눈과 뿌리 살펴보기",
+    questions:[
+      "겨울에도 이 식물의 어떤 부분은 죽지 않고 살아있을까요?",
+      "겨울눈은 어떤 모양일지 찾아보고 적어보세요."
+    ], drawLabel:"겨울눈이나 뿌리 모습을 그려보세요" },
+  { id:"s3", icon:"🌱", title:"새싹과 잎이 자라요",
+    questions:[
+      "언제쯤 새싹이 나오기 시작하나요?",
+      "잎의 모양과 색깔은 어떤가요?"
+    ], drawLabel:"새싹과 잎의 모습을 그려보세요" },
+  { id:"s4", icon:"🌷", title:"꽃이 피어요",
+    questions:[
+      "꽃은 언제쯤 피나요?",
+      "꽃의 색깔과 모양은 어떤가요?"
+    ], drawLabel:"꽃이 핀 모습을 그려보세요" },
+  { id:"s5", icon:"🍇", title:"열매나 씨앗이 생겨요",
+    questions:[
+      "열매나 씨앗이 생기나요? 생긴다면 언제, 어떤 모습인가요?",
+      "씨앗은 어떻게 멀리 퍼져나갈까요?"
+    ], drawLabel:"열매나 씨앗의 모습을 그려보세요" },
+  { id:"s6", icon:"🍂", title:"다시 겨울을 준비해요",
+    questions:[
+      "잎이 지고 난 뒤, 이 식물은 어떻게 겨울을 보낼까요?",
+      "한해살이 식물과 다른, 여러해살이 식물만의 특징을 정리해서 적어보세요."
+    ], drawLabel:"겨울을 준비하는 식물의 모습을 그려보세요" },
+];
+
+/* =========================================================
+   Firebase 초기화
+   ========================================================= */
+let dbReady = false;
+try{
+  firebase.initializeApp(firebaseConfig);
+  window.dbRef = firebase.database().ref(DB_ROOT);
+  dbReady = true;
+}catch(e){ console.warn("Firebase 초기화 실패 - 로컬 모드로 동작합니다.", e); }
+
+let localStore = {}; // firebase 연결 실패 시 임시 저장소
+function writeData(path, value){
+  if(dbReady){ window.dbRef.child(path).set(value); }
+  else {
+    const parts = path.split("/"); let o = localStore;
+    for(let i=0;i<parts.length-1;i++){ o[parts[i]] = o[parts[i]] || {}; o = o[parts[i]]; }
+    o[parts[parts.length-1]] = value;
+  }
+}
+function listenAll(cb){
+  if(dbReady){ window.dbRef.on("value", snap => cb(snap.val() || {})); }
+  else { cb(localStore); setInterval(()=>cb(localStore), 1500); }
+}
+
+/* =========================================================
+   상태 관리
+   ========================================================= */
+let state = {
+  view: "login",      // login | stage | summary | present | teacherPin | teacher
+  groupId: null,
+  stageIndex: 0,
+  data: {},            // firebase 전체 데이터
+  presIndex: 0
+};
+
+function assignedPlant(groupId){
+  const data = state.data;
+  const assignMap = (data.config && data.config.assignment) || {};
+  const pid = assignMap[groupId] || PLANTS[(groupId-1) % PLANTS.length].id;
+  return PLANTS.find(p=>p.id===pid) || PLANTS[0];
+}
+function groupAnswers(groupId){
+  return (state.data.groups && state.data.groups[groupId]) || {};
+}
+function stageCompleted(groupId, stageId){
+  const g = groupAnswers(groupId);
+  return !!(g.completed && g.completed[stageId]);
+}
+
+/* =========================================================
+   렌더링
+   ========================================================= */
+const app = document.getElementById("app");
+
+function render(){
+  if(state.view === "login") return renderLogin();
+  if(state.view === "stage") return renderStage();
+  if(state.view === "summary") return renderSummary();
+  if(state.view === "present") return renderPresent();
+  if(state.view === "teacherPin") return renderTeacherPin();
+  if(state.view === "teacher") return renderTeacher();
+}
+
+function topbarHtml(title){
+  return `
+  <div class="topbar">
+    <div class="brand">🌿 ${title}</div>
+    <div class="rightNav">
+      ${state.view!=="login" ? `<button class="navBtn" onclick="goLogin()">모둠 나가기</button>`:""}
+      <button class="navBtn" onclick="goPresent()">발표 모드</button>
+      <button class="navBtn" onclick="goTeacherPin()">교사</button>
+    </div>
+  </div>`;
+}
+
+function renderLogin(){
+  let cards = "";
+  for(let g=1; g<=GROUP_COUNT; g++){
+    const plant = assignedPlant(g);
+    cards += `<button class="groupCard" onclick="selectGroup(${g})">
+      <div class="num">${g}모둠</div>
+      <div class="plantTag">${plant.emoji} ${plant.name}</div>
+    </button>`;
+  }
+  app.innerHTML = `
+    ${topbarHtml("여러해살이 식물 탐구대장")}
+    <div class="loginWrap">
+      <div class="hero">🌳🌸🍂</div>
+      <h1>여러해살이 식물 탐구대장</h1>
+      <p>우리 모둠이 맡은 여러해살이 식물을 사계절 내내 관찰하며, 겨울에도 죽지 않고 다시 자라나는 비밀을 찾아봐요!</p>
+      <div class="groupGrid">${cards}</div>
+    </div>`;
+}
+
+function selectGroup(g){
+  state.groupId = g;
+  state.view = "stage";
+  const ans = groupAnswers(g);
+  const completedIds = STAGES.map(s=>s.id).filter(id => stageCompleted(g,id));
+  const firstUndone = STAGES.findIndex(s => !completedIds.includes(s.id));
+  state.stageIndex = firstUndone === -1 ? STAGES.length-1 : firstUndone;
+  render();
+}
+function goLogin(){ state.view="login"; state.groupId=null; render(); }
+
+function wheelHtml(){
+  let track = "";
+  STAGES.forEach((s, i) => {
+    const done = stageCompleted(state.groupId, s.id);
+    const active = i === state.stageIndex;
+    track += `
+      <div class="stageNode ${done?'done':''} ${active?'active':''}" onclick="jumpStage(${i})">
+        <div class="stageCircle">${done?'✔️':s.icon}</div>
+        <div class="stageLabel">${s.title}</div>
+      </div>`;
+    if(i < STAGES.length-1) track += `<div class="connector"></div>`;
+  });
+  return `
+    <div class="wheelWrap">
+      <div class="wheelTrack">${track}</div>
+      <div class="loopBack"><span class="arrow">↩️</span> 그리고, 다시 봄이 오면... 처음부터 또 자라나요!</div>
+    </div>`;
+}
+function jumpStage(i){ state.stageIndex = i; render(); }
+
+let currentAnswers = {}; // 임시 편집중인 답변 (렌더 재사용 위해)
+let drawCtx = null, drawing = false, drawColor = "#2F5233", lastX=0, lastY=0;
+
+function renderStage(){
+  const g = state.groupId;
+  const plant = assignedPlant(g);
+  const stage = STAGES[state.stageIndex];
+  const saved = groupAnswers(g);
+  const savedAnswers = (saved.answers && saved.answers[stage.id]) || [];
+  const savedDrawing = (saved.drawings && saved.drawings[stage.id]) || null;
+
+  let qHtml = "";
+  stage.questions.forEach((q, qi) => {
+    const val = savedAnswers[qi] || "";
+    qHtml += `
+      <div class="qBlock">
+        <label>${qi+1}. ${q}</label>
+        <textarea id="ans_${qi}" placeholder="여기에 적어보세요">${val}</textarea>
+      </div>`;
+  });
+
+  app.innerHTML = `
+    ${topbarHtml(g+"모둠")}
+    ${wheelHtml()}
+    <div class="stageContent">
+      <div class="plantBanner">
+        <div class="emoji">${plant.emoji}</div>
+        <div>
+          <div class="name">${plant.name}</div>
+          <div class="desc">${plant.desc}</div>
+        </div>
+      </div>
+      <h3 class="stageTitle">${stage.icon} ${stage.title}</h3>
+      ${qHtml}
+      <div class="drawSection">
+        <label>✏️ ${stage.drawLabel}</label>
+        <div class="canvasWrap">
+          <canvas id="drawCanvas"></canvas>
+          <div class="drawTools">
+            <div class="swatch" style="background:#2F5233" onclick="setColor('#2F5233')"></div>
+            <div class="swatch" style="background:#6FA85E" onclick="setColor('#6FA85E')"></div>
+            <div class="swatch" style="background:#E8779A" onclick="setColor('#E8779A')"></div>
+            <div class="swatch" style="background:#F4B942" onclick="setColor('#F4B942')"></div>
+            <div class="swatch" style="background:#7A5230" onclick="setColor('#7A5230')"></div>
+            <button class="toolBtn" onclick="clearCanvas()">🧽 지우기</button>
+          </div>
+        </div>
+      </div>
+      <div class="stageFooterNav">
+        ${state.stageIndex>0 ? `<button class="bigBtn secondary" onclick="prevStage()">← 이전 단계</button>` : `<div style="flex:1"></div>`}
+        <button class="bigBtn primary" onclick="saveStage()">이 단계 저장하고 ${state.stageIndex<STAGES.length-1 ? '다음 →' : '완료!'}</button>
+      </div>
+    </div>`;
+
+  setTimeout(()=> initCanvas(savedDrawing), 30);
+}
+
+function initCanvas(savedDataUrl){
+  const canvas = document.getElementById("drawCanvas");
+  if(!canvas) return;
+  const ratio = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width*ratio;
+  canvas.height = 220*ratio;
+  drawCtx = canvas.getContext("2d");
+  drawCtx.scale(ratio, ratio);
+  drawCtx.fillStyle = "#fff";
+  drawCtx.fillRect(0,0,rect.width,220);
+  drawCtx.lineWidth = 5;
+  drawCtx.lineCap = "round";
+
+  if(savedDataUrl){
+    const img = new Image();
+    img.onload = ()=> drawCtx.drawImage(img,0,0,rect.width,220);
+    img.src = savedDataUrl;
+  }
+
+  function pos(e){
+    const r = canvas.getBoundingClientRect();
+    const t = e.touches ? e.touches[0] : e;
+    return {x:(t.clientX-r.left), y:(t.clientY-r.top)};
+  }
+  function start(e){ e.preventDefault(); drawing=true; const p=pos(e); lastX=p.x; lastY=p.y; }
+  function move(e){
+    if(!drawing) return; e.preventDefault();
+    const p = pos(e);
+    drawCtx.strokeStyle = drawColor;
+    drawCtx.beginPath(); drawCtx.moveTo(lastX,lastY); drawCtx.lineTo(p.x,p.y); drawCtx.stroke();
+    lastX=p.x; lastY=p.y;
+  }
+  function end(){ drawing=false; }
+  canvas.onmousedown=start; canvas.onmousemove=move; canvas.onmouseup=end; canvas.onmouseleave=end;
+  canvas.ontouchstart=start; canvas.ontouchmove=move; canvas.ontouchend=end;
+}
+function setColor(c){ drawColor=c; }
+function clearCanvas(){
+  const canvas = document.getElementById("drawCanvas");
+  const rect = canvas.getBoundingClientRect();
+  drawCtx.fillStyle="#fff"; drawCtx.fillRect(0,0,rect.width,220);
+}
+
+function saveStage(){
+  const g = state.groupId;
+  const stage = STAGES[state.stageIndex];
+  const answers = stage.questions.map((_,qi)=> document.getElementById("ans_"+qi).value.trim());
+  const canvas = document.getElementById("drawCanvas");
+  const dataUrl = canvas.toDataURL("image/png");
+
+  const g_data = groupAnswers(g);
+  const newAnswers = Object.assign({}, g_data.answers, {[stage.id]: answers});
+  const newDrawings = Object.assign({}, g_data.drawings, {[stage.id]: dataUrl});
+  const newCompleted = Object.assign({}, g_data.completed, {[stage.id]: true});
+
+  writeData(`groups/${g}/answers`, newAnswers);
+  writeData(`groups/${g}/drawings`, newDrawings);
+  writeData(`groups/${g}/completed`, newCompleted);
+  writeData(`groups/${g}/plantId`, assignedPlant(g).id);
+  writeData(`groups/${g}/updatedAt`, Date.now());
+
+  // 로컬 상태에도 즉시 반영 (파이어베이스 지연 대비)
+  state.data.groups = state.data.groups || {};
+  state.data.groups[g] = Object.assign({}, g_data, {answers:newAnswers, drawings:newDrawings, completed:newCompleted});
+
+  if(state.stageIndex < STAGES.length-1){
+    state.stageIndex++;
+    render();
+  } else {
+    state.view = "summary";
+    render();
+  }
+}
+function prevStage(){ state.stageIndex = Math.max(0,state.stageIndex-1); render(); }
+
+function renderSummary(){
+  const g = state.groupId;
+  const plant = assignedPlant(g);
+  const g_data = groupAnswers(g);
+  let stagesHtml = "";
+  STAGES.forEach(s=>{
+    const ans = (g_data.answers && g_data.answers[s.id]) || [];
+    const draw = (g_data.drawings && g_data.drawings[s.id]) || null;
+    let qhtml = s.questions.map((q,i)=> `<p><b>Q.</b> ${q}<br><b>A.</b> ${ans[i]||"(아직 없음)"}</p>`).join("");
+    stagesHtml += `
+      <div class="summaryStage">
+        <h4>${s.icon} ${s.title}</h4>
+        ${qhtml}
+        ${draw ? `<img src="${draw}">` : ""}
+      </div>`;
+  });
+
+  app.innerHTML = `
+    ${topbarHtml(g+"모둠 발표 카드")}
+    <div class="stageContent">
+      <div class="summaryCard">
+        <h2>${plant.emoji} 우리 모둠이 조사한 ${plant.name}</h2>
+        <p style="font-size:13.5px;color:#666;margin-top:-8px;">${plant.desc}</p>
+        ${stagesHtml}
+      </div>
+      <div class="stageFooterNav">
+        <button class="bigBtn secondary" onclick="state.stageIndex=STAGES.length-1; state.view='stage'; render();">← 수정하기</button>
+        <button class="bigBtn primary" onclick="goPresent()">발표 모드로 보기</button>
+      </div>
+      <div class="stageFooterNav">
+        <button class="bigBtn secondary" onclick="printGroup(${g})">🖨️ 이 모둠 결과 인쇄하기</button>
+      </div>
+    </div>`;
+}
+
+/* ---------------- 발표 모드 ---------------- */
+function goPresent(){ state.view="present"; state.presIndex = state.groupId ? state.groupId-1 : 0; render(); }
+
+function renderPresent(){
+  const gid = state.presIndex+1;
+  const plant = assignedPlant(gid);
+  const g_data = groupAnswers(gid);
+  const doneCount = STAGES.filter(s=>stageCompleted(gid,s.id)).length;
+
+  let body = "";
+  if(doneCount===0){
+    body = `<p style="font-size:16px;">아직 이 모둠은 조사를 시작하지 않았어요.</p>`;
+  } else {
+    STAGES.forEach(s=>{
+      const ans = (g_data.answers && g_data.answers[s.id]) || [];
+      const draw = (g_data.drawings && g_data.drawings[s.id]) || null;
+      if(!ans.length && !draw) return;
+      body += `<div class="summaryStage">
+        <h4>${s.icon} ${s.title}</h4>
+        ${s.questions.map((q,i)=> ans[i] ? `<p><b>${q}</b><br>${ans[i]}</p>`:"").join("")}
+        ${draw ? `<img src="${draw}">`:""}
+      </div>`;
+    });
+  }
+
+  app.innerHTML = `
+    <div class="presWrap">
+      <div class="presHeader">
+        <button class="navBtn" onclick="goLogin()">닫기</button>
+        <h2 style="margin:0;">${gid}모둠 · ${plant.emoji}${plant.name}</h2>
+        <button class="navBtn" onclick="toggleFullscreen()">전체화면</button>
+      </div>
+      <div class="presCard">
+        <h2>${plant.emoji} ${plant.name} 이야기</h2>
+        ${body}
+      </div>
+      <div class="presNav">
+        <button onclick="presMove(-1)">◀ 이전 모둠</button>
+        <button onclick="printGroup(${gid})">🖨️ 인쇄</button>
+        <button onclick="presMove(1)">다음 모둠 ▶</button>
+      </div>
+    </div>`;
+}
+function presMove(d){
+  state.presIndex = (state.presIndex + d + GROUP_COUNT) % GROUP_COUNT;
+  render();
+}
+function toggleFullscreen(){
+  if(!document.fullscreenElement){ document.documentElement.requestFullscreen().catch(()=>{}); }
+  else{ document.exitFullscreen(); }
+}
+
+/* ---------------- 교사 대시보드 ---------------- */
+function goTeacherPin(){ state.view="teacherPin"; render(); }
+function renderTeacherPin(){
+  app.innerHTML = `
+    ${topbarHtml("교사 인증")}
+    <div class="pinScreen">
+      <div style="font-size:40px;">🔐</div>
+      <input id="pinInput" type="password" inputmode="numeric" maxlength="4" placeholder="••••">
+      <button class="bigBtn primary" style="width:160px;" onclick="checkPin()">확인</button>
+      <div class="lockNote">교사용 비밀번호를 입력하세요.</div>
+    </div>`;
+}
+function checkPin(){
+  const v = document.getElementById("pinInput").value;
+  if(v === TEACHER_PIN){ state.view="teacher"; render(); }
+  else alert("비밀번호가 올바르지 않습니다.");
+}
+
+function renderTeacher(){
+  let rows = "";
+  for(let g=1; g<=GROUP_COUNT; g++){
+    const plant = assignedPlant(g);
+    let dots = STAGES.map(s => `<span class="dot ${stageCompleted(g,s.id)?'on':'off'}" title="${s.title}"></span>`).join(" ");
+    let options = PLANTS.map(p => `<option value="${p.id}" ${p.id===plant.id?'selected':''}>${p.emoji} ${p.name}</option>`).join("");
+    rows += `
+      <tr>
+        <td><b>${g}모둠</b></td>
+        <td><select onchange="reassignPlant(${g}, this.value)">${options}</select></td>
+        <td>${dots}</td>
+        <td>${STAGES.filter(s=>stageCompleted(g,s.id)).length} / ${STAGES.length}</td>
+        <td><button class="resetBtn" onclick="resetGroup(${g})">초기화</button></td>
+        <td><button class="toolBtn" onclick="printGroup(${g})">🖨️ 인쇄</button></td>
+      </tr>`;
+  }
+  app.innerHTML = `
+    ${topbarHtml("교사 대시보드")}
+    <div class="teacherWrap">
+      <h2 style="color:var(--moss);">모둠별 진행 현황</h2>
+      <div style="margin-bottom:12px;">
+        <button class="bigBtn primary" style="max-width:260px;" onclick="printAllGroups()">🖨️ 전체 모둠 결과 한번에 인쇄하기</button>
+      </div>
+      <table>
+        <tr><th>모둠</th><th>배정 식물</th><th>단계 진행</th><th>완료</th><th>초기화</th><th>인쇄</th></tr>
+        ${rows}
+      </table>
+      <p class="lockNote">단계 순서: ${STAGES.map(s=>s.icon+" "+s.title).join(" · ")}</p>
+    </div>`;
+}
+function reassignPlant(g, plantId){
+  writeData(`config/assignment/${g}`, plantId);
+  state.data.config = state.data.config || {};
+  state.data.config.assignment = state.data.config.assignment || {};
+  state.data.config.assignment[g] = plantId;
+  render();
+}
+function resetGroup(g){
+  if(!confirm(g+"모둠의 조사 기록을 모두 지울까요? 되돌릴 수 없어요.")) return;
+  writeData(`groups/${g}`, null);
+  if(state.data.groups) delete state.data.groups[g];
+  render();
+}
+
+/* ---------------- 인쇄 기능 ---------------- */
+function buildPrintSheetHtml(gid){
+  const plant = assignedPlant(gid);
+  const g_data = groupAnswers(gid);
+  let stagesHtml = "";
+  STAGES.forEach(s=>{
+    const ans = (g_data.answers && g_data.answers[s.id]) || [];
+    const draw = (g_data.drawings && g_data.drawings[s.id]) || null;
+    if(!ans.some(a=>a) && !draw) return;
+    let qhtml = s.questions.map((q,i)=> ans[i] ? `<p><b>Q.</b> ${q}<br><b>A.</b> ${ans[i]}</p>` : "").join("");
+    stagesHtml += `
+      <div class="summaryStage">
+        <h4>${s.icon} ${s.title}</h4>
+        ${qhtml}
+        ${draw ? `<img src="${draw}">` : ""}
+      </div>`;
+  });
+  if(!stagesHtml){
+    stagesHtml = `<p>아직 조사한 내용이 없어요.</p>`;
+  }
+  return `
+    <div class="printSheet">
+      <h2>${plant.emoji} ${gid}모둠 · 여러해살이 식물 탐구 - ${plant.name}</h2>
+      <div class="sub">${plant.desc}</div>
+      ${stagesHtml}
+    </div>`;
+}
+
+function openPrintWindow(innerHtml){
+  const doc = `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+    <title>여러해살이 식물 탐구 - 인쇄</title>
+    <style>
+      body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif; color:#2B2B24; margin:0; padding:14mm;}
+      .printSheet{page-break-after:always; margin-bottom:20px;}
+      .printSheet:last-child{page-break-after:auto;}
+      h2{color:#2F5233; font-size:24px; margin:0 0 4px;}
+      .sub{font-size:13px; color:#555; margin-bottom:14px;}
+      .summaryStage{margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid #ccc;}
+      .summaryStage h4{margin:0 0 6px; color:#2F5233; font-size:16px;}
+      .summaryStage p{margin:3px 0; font-size:13.5px; line-height:1.5;}
+      .summaryStage img{max-height:260px; width:auto; display:block; margin:8px auto 0; border:1px solid #eee; border-radius:8px;}
+      @page{ margin:12mm; }
+    </style></head><body>${innerHtml}
+    <script>
+      window.onload=function(){ setTimeout(function(){ window.print(); }, 300); };
+      window.onafterprint=function(){ window.close(); };
+    <\/script>
+    </body></html>`;
+
+  const w = window.open("", "_blank");
+  if(!w){
+    alert("팝업이 차단되었어요. 브라우저 주소창 오른쪽의 팝업 차단 아이콘을 눌러 '허용'으로 바꿔주세요.");
+    return;
+  }
+  w.document.open();
+  w.document.write(doc);
+  w.document.close();
+}
+
+function printGroup(gid){
+  openPrintWindow(buildPrintSheetHtml(gid));
+}
+function printAllGroups(){
+  let html = "";
+  for(let g=1; g<=GROUP_COUNT; g++){
+    html += buildPrintSheetHtml(g);
+  }
+  openPrintWindow(html);
+}
+
+listenAll(data => {
+  state.data = data || {};
+  render();
+});
+render();
+</script>
+</body>
+</html>
