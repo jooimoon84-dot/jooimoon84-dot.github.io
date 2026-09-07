@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>세계 문화 탐험 여권</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
+
+<!-- ============================================================
+  [선생님 안내]
+  이 앱은 기본적으로 각 태블릿(기기) 안에만 저장됩니다(localStorage).
+  여러 태블릿의 결과를 한 화면(학급 전시관)에서 실시간으로 모아보고 싶다면
+  아래 firebaseConfig 에 본인의 Firebase 프로젝트 값을 넣어주세요.
+  (비워두면 자동으로 '이 기기 전용 모드'로 동작합니다)
+============================================================= -->
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyAIdpQUtdgDMTaJBWAd0bZPc3KbM2owaw4",
+    authDomain: "msja-3-3.firebaseapp.com",
+    databaseURL: "https://msja-3-3-default-rtdb.firebaseio.com",
+    projectId: "msja-3-3",  };
+</script>
+
+<style>
+  :root{
+    --paper:#F2E8D5;
+    --paper-dark:#E7D9BC;
+    --ink:#1D2B35;
+    --teal:#2B6777;
+    --teal-dark:#1E4E5C;
+    --stamp:#C1440E;
+    --mustard:#E8A33D;
+    --line:#c9b98f;
+    --radius:18px;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;height:100%;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Gowun Dodum', sans-serif;
+    -webkit-tap-highlight-color:transparent;
+    overscroll-behavior:none;
+  }
+  h1,h2,h3,.serif{ font-family:'Gowun Batang', serif; }
+  button{
+    font-family:inherit;
+    cursor:pointer;
+    border:none;
+    background:none;
+    -webkit-user-select:none;
+    user-select:none;
+  }
+  input, textarea{
+    font-family:inherit;
+    font-size:1.05rem;
+  }
+  #app{
+    max-width:720px;
+    margin:0 auto;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    position:relative;
+  }
+  .screen{ display:none; flex:1; flex-direction:column; padding:20px 20px 40px; }
+  .screen.active{ display:flex; }
+
+  /* ---------- topbar ---------- */
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 20px;
+  }
+  .topbar .brand{
+    font-family:'Gowun Batang', serif;
+    font-size:1.05rem;
+    color:var(--teal-dark);
+    letter-spacing:0.02em;
+  }
+  .icon-btn{
+    width:40px;height:40px;border-radius:50%;
+    background:rgba(29,43,53,0.06);
+    display:flex;align-items:center;justify-content:center;
+    font-size:1.2rem;
+  }
+
+  /* ---------- cover ---------- */
+  #screen-cover{ align-items:center; justify-content:center; text-align:center; gap:22px; }
+  .passport-cover{
+    width:min(88vw, 380px);
+    aspect-ratio: 3/4;
+    background: linear-gradient(155deg, var(--teal), var(--teal-dark));
+    border-radius:22px;
+    box-shadow: 0 18px 40px -14px rgba(30,78,92,0.55), inset 0 0 0 6px rgba(255,255,255,0.08);
+    color:#F2E8D5;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:14px;
+    padding:24px;
+    position:relative;
+  }
+  .passport-cover::after{
+    content:"";
+    position:absolute; inset:14px;
+    border:1.5px solid rgba(242,232,213,0.35);
+    border-radius:14px;
+    pointer-events:none;
+  }
+  .emblem{
+    width:64px;height:64px;
+    border-radius:50%;
+    border:2.5px solid var(--mustard);
+    display:flex;align-items:center;justify-content:center;
+    font-size:30px;
+  }
+  .cover-title{ font-size:1.6rem; line-height:1.4; margin:0; }
+  .cover-sub{ font-size:0.9rem; opacity:0.85; margin:0; letter-spacing:0.08em; }
+  .cover-form{ width:min(88vw,380px); display:flex; flex-direction:column; gap:10px; margin-top:6px; }
+  .cover-form input{
+    padding:14px 16px; border-radius:12px; border:1.5px solid var(--line);
+    background:#fffdf8; font-size:1.05rem;
+  }
+  .btn-primary{
+    background:var(--teal); color:#fff; padding:15px 20px; border-radius:14px;
+    font-size:1.08rem; font-weight:600; box-shadow:0 8px 18px -8px rgba(43,103,119,0.6);
+  }
+  .btn-primary:active{ transform:scale(0.98); }
+  .btn-ghost{
+    background:transparent; color:var(--teal-dark); padding:10px 14px;
+    border-radius:12px; font-size:0.95rem; text-decoration:underline;
+  }
+
+  /* ---------- map ---------- */
+  #screen-map .who{
+    font-size:0.95rem; color:var(--teal-dark); margin:0 0 4px;
+  }
+  #screen-map h2{ margin:0 0 4px; font-size:1.5rem; }
+  #screen-map .desc{ margin:0 0 18px; font-size:0.92rem; color:#5a5044; }
+  .station-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:14px;
+  }
+  .station-card{
+    background:#fffdf8;
+    border:1.5px solid var(--line);
+    border-radius:var(--radius);
+    padding:16px 14px;
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+    text-align:center;
+    position:relative;
+    min-height:168px;
+    justify-content:center;
+  }
+  .station-card:active{ transform:scale(0.97); }
+  .station-card .icon{ font-size:2.2rem; }
+  .station-card .name{ font-weight:700; font-size:0.98rem; line-height:1.35; }
+  .station-card .region{ font-size:0.78rem; color:#8a7f6c; }
+  .station-card.done{ border-color:var(--stamp); background:#fff8f3; }
+  .stamp-badge{
+    position:absolute; top:8px; right:8px;
+    width:34px;height:34px; border-radius:50%;
+    border:2px solid var(--stamp); color:var(--stamp);
+    display:flex;align-items:center;justify-content:center;
+    font-size:0.95rem; font-weight:700;
+    transform:rotate(-12deg);
+    background:#fff;
+  }
+  .progress-wrap{ margin-top:20px; }
+  .progress-track{
+    width:100%; height:10px; border-radius:6px; background:var(--paper-dark); overflow:hidden;
+  }
+  .progress-fill{ height:100%; background:var(--mustard); border-radius:6px; transition:width .4s ease; }
+  .progress-label{ font-size:0.82rem; color:#8a7f6c; margin-top:6px; }
+  .finish-btn-wrap{ margin-top:22px; }
+
+  /* ---------- station detail ---------- */
+  .station-hero{
+    background:linear-gradient(160deg, var(--teal), var(--teal-dark));
+    border-radius:var(--radius);
+    color:#fff;
+    padding:22px 20px;
+    display:flex; align-items:center; gap:16px;
+    margin-bottom:18px;
+  }
+  .station-hero .icon-big{ font-size:3rem; line-height:1; }
+  .station-hero h2{ margin:0 0 4px; font-size:1.2rem; }
+  .station-hero p{ margin:0; font-size:0.85rem; opacity:0.85; }
+
+  .stamp-zone{
+    display:flex; flex-direction:column; align-items:center; gap:10px;
+    padding:18px; border:1.5px dashed var(--line); border-radius:var(--radius);
+    margin-bottom:20px;
+    background:rgba(255,255,255,0.5);
+  }
+  .stamp-circle{
+    width:96px;height:96px;border-radius:50%;
+    border:3px solid var(--stamp); color:var(--stamp);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Gowun Batang',serif; font-weight:700; font-size:0.95rem;
+    transform:rotate(-10deg) scale(1);
+    transition:transform .25s ease;
+    background:#fff;
+    text-align:center;
+    line-height:1.2;
+  }
+  .stamp-circle.stamped{
+    color:#fff; background:var(--stamp);
+    animation: stampPop .35s ease;
+  }
+  @keyframes stampPop{
+    0%{ transform:rotate(-10deg) scale(1.5); opacity:0; }
+    60%{ transform:rotate(-10deg) scale(0.92); opacity:1; }
+    100%{ transform:rotate(-10deg) scale(1); }
+  }
+  .stamp-hint{ font-size:0.85rem; color:#8a7f6c; }
+
+  .field-block{ margin-bottom:18px; }
+  .field-block label{
+    display:block; font-weight:700; font-size:0.95rem; margin-bottom:8px; color:var(--teal-dark);
+  }
+  .field-block textarea{
+    width:100%; min-height:78px; padding:12px 14px; border-radius:12px;
+    border:1.5px solid var(--line); background:#fffdf8; resize:vertical; line-height:1.5;
+  }
+  .ib-question{
+    background:#fff8ec; border-left:4px solid var(--mustard);
+    padding:12px 14px; border-radius:8px; font-size:0.95rem; margin-bottom:10px; line-height:1.5;
+  }
+  .save-bar{ margin-top:auto; padding-top:10px; }
+
+  /* ---------- complete ---------- */
+  #screen-complete{ align-items:center; text-align:center; gap:16px; }
+  .complete-emoji{ font-size:3rem; }
+  .mini-passport{
+    width:100%; background:#fffdf8; border:1.5px solid var(--line); border-radius:var(--radius);
+    padding:18px; text-align:left; display:flex; flex-direction:column; gap:12px;
+  }
+  .mini-passport .row{ display:flex; align-items:flex-start; gap:10px; font-size:0.9rem; }
+  .mini-passport .row .tag{ font-size:1.4rem; }
+  .mini-passport .row .txt b{ display:block; font-size:0.85rem; color:var(--teal-dark); margin-bottom:2px;}
+  .mini-passport .row .txt span{ color:#3a352c; }
+
+  /* ---------- present mode ---------- */
+  #screen-present{ background:var(--paper); }
+  #screen-present .present-passport{
+    flex:1; display:flex; flex-direction:column; gap:16px; overflow-y:auto; padding-bottom:20px;
+  }
+  #screen-present .p-header{ text-align:center; margin-bottom:6px; }
+  #screen-present .p-header h1{ font-size:1.6rem; margin:0 0 4px; }
+  #screen-present .p-header p{ margin:0; color:#8a7f6c; }
+  .present-card{
+    background:#fffdf8; border:1.5px solid var(--line); border-radius:var(--radius); padding:18px;
+  }
+  .present-card .head{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .present-card .head .icon{ font-size:1.8rem; }
+  .present-card .head b{ font-size:1.05rem; }
+  .present-card .qa{ margin-top:8px; }
+  .present-card .qa .q{ font-size:0.88rem; color:var(--teal-dark); font-weight:700; margin-bottom:4px; }
+  .present-card .qa .a{ font-size:0.98rem; line-height:1.5; }
+
+  /* ---------- teacher gallery ---------- */
+  #screen-gallery .gal-list{ display:flex; flex-direction:column; gap:12px; margin-top:10px; }
+  .gal-item{
+    background:#fffdf8; border:1.5px solid var(--line); border-radius:14px; padding:14px 16px;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .gal-item .name{ font-weight:700; }
+  .gal-item .sub{ font-size:0.8rem; color:#8a7f6c; }
+  .gal-item .go{ background:var(--teal); color:#fff; padding:8px 14px; border-radius:10px; font-size:0.85rem; }
+  .empty-note{ color:#8a7f6c; font-size:0.9rem; margin-top:16px; line-height:1.6; }
+
+  .pin-overlay{
+    position:fixed; inset:0; background:rgba(29,43,53,0.55);
+    display:none; align-items:center; justify-content:center; z-index:50; padding:20px;
+  }
+  .pin-overlay.active{ display:flex; }
+  .pin-box{
+    background:#fffdf8; border-radius:16px; padding:24px; width:min(320px,90vw); text-align:center;
+  }
+  .pin-box input{
+    width:100%; text-align:center; letter-spacing:0.4em; font-size:1.3rem; padding:12px;
+    border-radius:10px; border:1.5px solid var(--line); margin:14px 0; background:#fff;
+  }
+
+  .back-row{ display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+  .back-row .icon-btn{ background:#fffdf8; border:1.5px solid var(--line); }
+
+  @media (max-width:380px){
+    .station-card{ min-height:150px; padding:12px 10px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ 표지 ============ -->
+  <div id="screen-cover" class="screen active">
+    <div class="passport-cover">
+      <div class="emblem">🌏</div>
+      <h1 class="cover-title serif">세계 문화<br>탐험 여권</h1>
+      <p class="cover-sub">WORLD CULTURE PASSPORT</p>
+    </div>
+    <div class="cover-form">
+      <input id="input-name" type="text" placeholder="이름을 적어주세요" maxlength="10">
+      <input id="input-class" type="text" placeholder="예) 3학년 2반 5번 (선택)" maxlength="20">
+      <button class="btn-primary" onclick="issuePassport()">✈️ 여권 발급받기</button>
+      <button class="btn-ghost" onclick="openPinOverlay()">선생님 화면</button>
+    </div>
+  </div>
+
+  <!-- ============ 여권 지도(스테이션 선택) ============ -->
+  <div id="screen-map" class="screen">
+    <div class="topbar" style="padding:0 0 8px;">
+      <span class="brand">🛂 세계 문화 탐험 여권</span>
+      <button class="icon-btn" onclick="goCover(true)" title="처음으로">🏠</button>
+    </div>
+    <p class="who" id="map-who"></p>
+    <h2 class="serif">스탬프 지도</h2>
+    <p class="desc">각 나라 스테이션을 방문해서 관찰하고, 여권에 기록한 뒤 스탬프를 받아보세요!</p>
+    <div class="station-grid" id="station-grid"></div>
+    <div class="progress-wrap">
+      <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+      <div class="progress-label" id="progress-label">0 / 4 스탬프 완료</div>
+    </div>
+    <div class="finish-btn-wrap">
+      <button class="btn-primary" id="btn-finish" style="width:100%;opacity:.4;" disabled onclick="goComplete()">📖 완성된 여권 보기</button>
+    </div>
+  </div>
+
+  <!-- ============ 스테이션 상세 ============ -->
+  <div id="screen-station" class="screen">
+    <div class="back-row">
+      <button class="icon-btn" onclick="goMap()">←</button>
+    </div>
+    <div class="station-hero">
+      <div class="icon-big" id="st-icon">🏝️</div>
+      <div>
+        <h2 id="st-name">스테이션</h2>
+        <p id="st-region">지역</p>
+      </div>
+    </div>
+
+    <div class="stamp-zone">
+      <div class="stamp-circle" id="stamp-circle" onclick="pressStamp()">누르면<br>스탬프 쾅!</div>
+      <div class="stamp-hint" id="stamp-hint">스탬프 찍는 곳 — 눌러서 도장을 받아보세요</div>
+    </div>
+
+    <div class="field-block">
+      <label>🔎 우리가 발견한 문화 특징</label>
+      <textarea id="st-feature" placeholder="이 지역 사람들의 집, 옷, 생활 모습에서 무엇을 발견했나요?"></textarea>
+    </div>
+
+    <div class="field-block">
+      <div class="ib-question" id="st-question"></div>
+      <label>💭 내 생각</label>
+      <textarea id="st-think" placeholder="왜 그럴지 내 생각을 자유롭게 적어보세요"></textarea>
+    </div>
+
+    <div class="save-bar">
+      <button class="btn-primary" style="width:100%;" onclick="saveStation()">✅ 기록하고 지도로 돌아가기</button>
+    </div>
+  </div>
+
+  <!-- ============ 완성 화면 ============ -->
+  <div id="screen-complete" class="screen">
+    <div class="complete-emoji">🎉📘</div>
+    <h2 class="serif">여권이 완성되었어요!</h2>
+    <div class="mini-passport" id="mini-passport"></div>
+    <button class="btn-primary" style="width:100%;" onclick="goPresent()">🎤 발표 화면으로 보여주기</button>
+    <button class="btn-ghost" onclick="goMap()">지도로 돌아가기</button>
+  </div>
+
+  <!-- ============ 발표(전체화면) 모드 ============ -->
+  <div id="screen-present" class="screen">
+    <div class="back-row">
+      <button class="icon-btn" onclick="goComplete()">←</button>
+      <span class="brand">발표 모드</span>
+    </div>
+    <div class="present-passport" id="present-passport"></div>
+  </div>
+
+  <!-- ============ 교사용 학급 전시관 ============ -->
+  <div id="screen-gallery" class="screen">
+    <div class="back-row">
+      <button class="icon-btn" onclick="goCover(false)">←</button>
+      <span class="brand">🖼️ 학급 전시관</span>
+    </div>
+    <p class="desc" id="gallery-mode-note"></p>
+    <div class="gal-list" id="gal-list"></div>
+    <div class="empty-note" id="gallery-empty" style="display:none;"></div>
+  </div>
+
+  <!-- ============ 학생 여권 열람(교사용 상세) ============ -->
+  <div id="screen-view" class="screen">
+    <div class="back-row">
+      <button class="icon-btn" onclick="showScreen('screen-gallery')">←</button>
+    </div>
+    <div class="present-passport" id="view-passport"></div>
+  </div>
+
+</div>
+
+<!-- PIN 입력 오버레이 -->
+<div class="pin-overlay" id="pin-overlay">
+  <div class="pin-box">
+    <h3 class="serif" style="margin:0;">선생님 화면 PIN</h3>
+    <input id="pin-input" type="tel" inputmode="numeric" maxlength="4" placeholder="••••">
+    <button class="btn-primary" style="width:100%;" onclick="checkPin()">입장하기</button>
+    <button class="btn-ghost" onclick="closePinOverlay()">취소</button>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+<script>
+/* ================== 데이터 ================== */
+const TEACHER_PIN = "3300";
+
+const STATIONS = [
+  {
+    id: "tropical",
+    icon: "🏝️",
+    name: "덥고 비가 많이 오는 지역",
+    region: "동남아시아 등",
+    stampLabel: "동남아시아",
+    question: "왜 이 사람들은 땅 위에 바로 집을 짓지 않고, 기둥을 세워 집을 높이 띄워 올렸을까요?"
+  },
+  {
+    id: "cold",
+    icon: "🏔️",
+    name: "춥고 눈이 많이 오는 지역",
+    region: "북유럽, 알래스카 등",
+    stampLabel: "북유럽",
+    question: "왜 이 지역은 지붕을 가파르고 뾰족하게 만들었을까요?"
+  },
+  {
+    id: "desert",
+    icon: "🏜️",
+    name: "햇빛이 뜨겁고 건조한 사막 지역",
+    region: "중동 등",
+    stampLabel: "중동 사막",
+    question: "날씨가 더운데 왜 반팔 대신 긴 옷을 입을까요?"
+  },
+  {
+    id: "steppe",
+    icon: "🌾",
+    name: "넓은 초원이 펼쳐진 지역",
+    region: "몽골 등",
+    stampLabel: "몽골 초원",
+    question: "왜 튼튼한 집 대신 쉽게 옮기는 천막 집을 지을까요?"
+  }
+];
+
+/* ================== 상태 ================== */
+let student = { name:"", classInfo:"", key:"" };
+let records = {}; // stationId -> {feature, think, stamped, stampedAt}
+let currentStationId = null;
+let fbEnabled = false;
+let fbDb = null;
+
+function useFirebase(){
+  return firebaseConfig && firebaseConfig.apiKey;
+}
+
+/* ================== 초기화 ================== */
+window.addEventListener('DOMContentLoaded', () => {
+  if (useFirebase()) {
+    try {
+      firebase.initializeApp(firebaseConfig);
+      fbDb = firebase.database();
+      fbEnabled = true;
+    } catch(e){ console.warn("Firebase 초기화 실패, 기기 저장 모드로 동작합니다.", e); }
+  }
+  const saved = localStorage.getItem('wcp_student');
+  if (saved) {
+    try {
+      const data = JSON.parse(saved);
+      student = data.student;
+      records = data.records || {};
+      renderMap();
+      showScreen('screen-map');
+      return;
+    } catch(e){}
+  }
+});
+
+/* ================== 화면 전환 ================== */
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+function goCover(reset){
+  if (reset) {
+    localStorage.removeItem('wcp_student');
+    student = { name:"", classInfo:"", key:"" };
+    records = {};
+    document.getElementById('input-name').value = "";
+    document.getElementById('input-class').value = "";
+  }
+  showScreen('screen-cover');
+}
+
+function goMap(){ renderMap(); showScreen('screen-map'); }
+
+/* ================== 여권 발급 ================== */
+function issuePassport(){
+  const name = document.getElementById('input-name').value.trim();
+  const classInfo = document.getElementById('input-class').value.trim();
+  if (!name) { alert('이름을 적어주세요!'); return; }
+  student = { name, classInfo, key: name + "_" + Date.now() };
+  records = {};
+  persistLocal();
+  renderMap();
+  showScreen('screen-map');
+}
+
+function persistLocal(){
+  localStorage.setItem('wcp_student', JSON.stringify({ student, records }));
+}
+
+/* ================== 지도 화면 ================== */
+function renderMap(){
+  document.getElementById('map-who').textContent =
+    student.name ? `${student.name}${student.classInfo ? ' · ' + student.classInfo : ''} 님의 여권` : '';
+
+  const grid = document.getElementById('station-grid');
+  grid.innerHTML = '';
+  let doneCount = 0;
+  STATIONS.forEach(st => {
+    const rec = records[st.id];
+    const done = rec && rec.stamped;
+    if (done) doneCount++;
+    const card = document.createElement('button');
+    card.className = 'station-card' + (done ? ' done' : '');
+    card.onclick = () => openStation(st.id);
+    card.innerHTML = `
+      ${done ? '<div class="stamp-badge">✓</div>' : ''}
+      <div class="icon">${st.icon}</div>
+      <div class="name">${st.name}</div>
+      <div class="region">${st.region}</div>
+    `;
+    grid.appendChild(card);
+  });
+
+  const pct = Math.round((doneCount/STATIONS.length)*100);
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = `${doneCount} / ${STATIONS.length} 스탬프 완료`;
+
+  const finishBtn = document.getElementById('btn-finish');
+  if (doneCount === STATIONS.length) {
+    finishBtn.disabled = false;
+    finishBtn.style.opacity = 1;
+  } else {
+    finishBtn.disabled = true;
+    finishBtn.style.opacity = 0.4;
+  }
+}
+
+/* ================== 스테이션 상세 ================== */
+function openStation(id){
+  currentStationId = id;
+  const st = STATIONS.find(s => s.id === id);
+  const rec = records[id] || {};
+
+  document.getElementById('st-icon').textContent = st.icon;
+  document.getElementById('st-name').textContent = st.name;
+  document.getElementById('st-region').textContent = st.region;
+  document.getElementById('st-question').textContent = '🧭 탐구 질문: ' + st.question;
+  document.getElementById('st-feature').value = rec.feature || '';
+  document.getElementById('st-think').value = rec.think || '';
+
+  const circle = document.getElementById('stamp-circle');
+  if (rec.stamped) {
+    circle.classList.add('stamped');
+    circle.innerHTML = '✅ 확인 완료';
+    document.getElementById('stamp-hint').textContent = '스탬프를 받았어요! (다시 눌러도 괜찮아요)';
+  } else {
+    circle.classList.remove('stamped');
+    circle.innerHTML = '누르면<br>스탬프 쾅!';
+    document.getElementById('stamp-hint').textContent = '스탬프 찍는 곳 — 눌러서 도장을 받아보세요';
+  }
+  showScreen('screen-station');
+}
+
+function pressStamp(){
+  const circle = document.getElementById('stamp-circle');
+  circle.classList.remove('stamped');
+  void circle.offsetWidth; // reflow to restart animation
+  circle.classList.add('stamped');
+  circle.innerHTML = '✅ 확인 완료';
+  document.getElementById('stamp-hint').textContent = '스탬프를 받았어요! 아래 내용도 적어보세요';
+  if (navigator.vibrate) navigator.vibrate(30);
+}
+
+function saveStation(){
+  const st = STATIONS.find(s => s.id === currentStationId);
+  const circle = document.getElementById('stamp-circle');
+  const stamped = circle.classList.contains('stamped');
+  const feature = document.getElementById('st-feature').value.trim();
+  const think = document.getElementById('st-think').value.trim();
+
+  if (!stamped) { alert('먼저 스탬프를 눌러주세요!'); return; }
+  if (!feature || !think) { alert('문화 특징과 내 생각을 모두 적어주세요!'); return; }
+
+  records[currentStationId] = {
+    feature, think, stamped: true, stampedAt: Date.now()
+  };
+  persistLocal();
+  goMap();
+}
+
+/* ================== 완성 / 발표 ================== */
+function buildPassportHTML(targetStudent, targetRecords, container){
+  container.innerHTML = `
+    <div class="p-header">
+      <h1 class="serif">🌏 세계 문화 탐험 여권</h1>
+      <p>${targetStudent.name}${targetStudent.classInfo ? ' · ' + targetStudent.classInfo : ''}</p>
+    </div>
+  `;
+  STATIONS.forEach(st => {
+    const rec = targetRecords[st.id];
+    if (!rec) return;
+    const card = document.createElement('div');
+    card.className = 'present-card';
+    card.innerHTML = `
+      <div class="head"><span class="icon">${st.icon}</span><b>${st.name}</b></div>
+      <div class="qa">
+        <div class="q">🔎 우리가 발견한 문화 특징</div>
+        <div class="a">${escapeHtml(rec.feature)}</div>
+      </div>
+      <div class="qa">
+        <div class="q">🧭 ${st.question}</div>
+        <div class="a">${escapeHtml(rec.think)}</div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+
+function goComplete(){
+  const box = document.getElementById('mini-passport');
+  box.innerHTML = '';
+  STATIONS.forEach(st => {
+    const rec = records[st.id];
+    if (!rec) return;
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = `
+      <div class="tag">${st.icon}</div>
+      <div class="txt">
+        <b>${st.name}</b>
+        <span>${escapeHtml(rec.feature)}</span>
+      </div>
+    `;
+    box.appendChild(row);
+  });
+  submitToClass();
+  showScreen('screen-complete');
+}
+
+function goPresent(){
+  const container = document.getElementById('present-passport');
+  buildPassportHTML(student, records, container);
+  showScreen('screen-present');
+}
+
+/* ================== 학급 제출(선택적 실시간 동기화) ================== */
+function submitToClass(){
+  const payload = { student, records, submittedAt: Date.now() };
+  if (fbEnabled) {
+    const safeKey = student.key.replace(/[.#$/\[\]]/g, '_');
+    fbDb.ref('worldCulturePassports/' + safeKey).set(payload).catch(e => console.warn(e));
+  } else {
+    const all = JSON.parse(localStorage.getItem('wcp_gallery_local') || '{}');
+    all[student.key] = payload;
+    localStorage.setItem('wcp_gallery_local', JSON.stringify(all));
+  }
+}
+
+/* ================== 선생님 PIN ================== */
+function openPinOverlay(){
+  document.getElementById('pin-overlay').classList.add('active');
+  document.getElementById('pin-input').value = '';
+  document.getElementById('pin-input').focus();
+}
+function closePinOverlay(){
+  document.getElementById('pin-overlay').classList.remove('active');
+}
+function checkPin(){
+  const val = document.getElementById('pin-input').value.trim();
+  if (val === TEACHER_PIN) {
+    closePinOverlay();
+    openGallery();
+  } else {
+    alert('PIN 번호가 올바르지 않아요.');
+  }
+}
+
+/* ================== 학급 전시관 ================== */
+function openGallery(){
+  const note = document.getElementById('gallery-mode-note');
+  const list = document.getElementById('gal-list');
+  const empty = document.getElementById('gallery-empty');
+  list.innerHTML = '';
+  empty.style.display = 'none';
+
+  if (fbEnabled) {
+    note.textContent = '실시간 연결 중 — 모든 태블릿의 완성된 여권이 이곳에 모입니다.';
+    fbDb.ref('worldCulturePassports').on('value', snap => {
+      const data = snap.val() || {};
+      renderGallery(Object.values(data));
+    });
+  } else {
+    note.textContent = '이 기기(태블릿)에서 완성한 여권만 보여요. 여러 태블릿을 한 화면에 모으려면 파일 상단의 Firebase 설정이 필요해요.';
+    const all = JSON.parse(localStorage.getItem('wcp_gallery_local') || '{}');
+    renderGallery(Object.values(all));
+  }
+  showScreen('screen-gallery');
+}
+
+let galleryCache = [];
+function renderGallery(items){
+  galleryCache = items;
+  const list = document.getElementById('gal-list');
+  const empty = document.getElementById('gallery-empty');
+  list.innerHTML = '';
+  if (!items.length) {
+    empty.style.display = 'block';
+    empty.textContent = '아직 완성해서 제출한 여권이 없어요.';
+    return;
+  }
+  items.sort((a,b) => a.student.name.localeCompare(b.student.name, 'ko'));
+  items.forEach((item, idx) => {
+    const stampCount = Object.values(item.records || {}).filter(r => r.stamped).length;
+    const row = document.createElement('div');
+    row.className = 'gal-item';
+    row.innerHTML = `
+      <div>
+        <div class="name">${escapeHtml(item.student.name)}${item.student.classInfo ? ' · ' + escapeHtml(item.student.classInfo) : ''}</div>
+        <div class="sub">스탬프 ${stampCount} / ${STATIONS.length}</div>
+      </div>
+      <button class="go" onclick="viewGalleryItem(${idx})">여권 보기</button>
+    `;
+    list.appendChild(row);
+  });
+}
+
+function viewGalleryItem(idx){
+  const item = galleryCache[idx];
+  if (!item) return;
+  const container = document.getElementById('view-passport');
+  buildPassportHTML(item.student, item.records || {}, container);
+  showScreen('screen-view');
+}
+</script>
+</body>
+</html>
