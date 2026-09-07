@@ -306,7 +306,7 @@
       <input id="input-name" type="text" placeholder="이름을 적어주세요" maxlength="10">
       <input id="input-class" type="text" placeholder="예) 3학년 2반 5번 (선택)" maxlength="20">
       <button class="btn-primary" onclick="issuePassport()">✈️ 여권 발급받기</button>
-      <button class="btn-ghost" onclick="openPinOverlay()">선생님 화면</button>
+      <button class="btn-ghost" onclick="openPinOverlay('gallery')">선생님 화면</button>
     </div>
   </div>
 
@@ -343,8 +343,8 @@
     </div>
 
     <div class="stamp-zone">
-      <div class="stamp-circle" id="stamp-circle" onclick="pressStamp()">누르면<br>스탬프 쾅!</div>
-      <div class="stamp-hint" id="stamp-hint">스탬프 찍는 곳 — 눌러서 도장을 받아보세요</div>
+      <div class="stamp-circle" id="stamp-circle" onclick="requestStamp()">선생님을<br>불러주세요</div>
+      <div class="stamp-hint" id="stamp-hint">스탬프 찍는 곳 — 선생님이 확인 후 PIN을 입력해야 찍혀요</div>
     </div>
 
     <div class="field-block">
@@ -405,7 +405,7 @@
 <!-- PIN 입력 오버레이 -->
 <div class="pin-overlay" id="pin-overlay">
   <div class="pin-box">
-    <h3 class="serif" style="margin:0;">선생님 화면 PIN</h3>
+    <h3 class="serif" id="pin-title" style="margin:0;">선생님 화면 PIN</h3>
     <input id="pin-input" type="tel" inputmode="numeric" maxlength="4" placeholder="••••">
     <button class="btn-primary" style="width:100%;" onclick="checkPin()">입장하기</button>
     <button class="btn-ghost" onclick="closePinOverlay()">취소</button>
@@ -581,13 +581,17 @@ function openStation(id){
     document.getElementById('stamp-hint').textContent = '스탬프를 받았어요! (다시 눌러도 괜찮아요)';
   } else {
     circle.classList.remove('stamped');
-    circle.innerHTML = '누르면<br>스탬프 쾅!';
-    document.getElementById('stamp-hint').textContent = '스탬프 찍는 곳 — 눌러서 도장을 받아보세요';
+    circle.innerHTML = '선생님을<br>불러주세요';
+    document.getElementById('stamp-hint').textContent = '스탬프 찍는 곳 — 선생님이 확인 후 PIN을 입력해야 찍혀요';
   }
   showScreen('screen-station');
 }
 
-function pressStamp(){
+function requestStamp(){
+  openPinOverlay('stamp');
+}
+
+function applyStamp(){
   const circle = document.getElementById('stamp-circle');
   circle.classList.remove('stamped');
   void circle.offsetWidth; // reflow to restart animation
@@ -689,7 +693,14 @@ function submitToClass(){
 }
 
 /* ================== 선생님 PIN ================== */
-function openPinOverlay(){
+let pinPurpose = 'gallery'; // 'gallery' 또는 'stamp'
+
+function openPinOverlay(purpose){
+  pinPurpose = purpose || 'gallery';
+  const title = document.getElementById('pin-title');
+  if (title) {
+    title.textContent = pinPurpose === 'stamp' ? '스탬프 확인 PIN' : '선생님 화면 PIN';
+  }
   document.getElementById('pin-overlay').classList.add('active');
   document.getElementById('pin-input').value = '';
   document.getElementById('pin-input').focus();
@@ -701,7 +712,11 @@ function checkPin(){
   const val = document.getElementById('pin-input').value.trim();
   if (val === TEACHER_PIN) {
     closePinOverlay();
-    openGallery();
+    if (pinPurpose === 'stamp') {
+      applyStamp();
+    } else {
+      openGallery();
+    }
   } else {
     alert('PIN 번호가 올바르지 않아요.');
   }
